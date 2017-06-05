@@ -1,0 +1,190 @@
+<link rel="import" href="./bower_components/polymer/polymer-element.html">
+<link rel="import" href="./bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="./bower_components/paper-button/paper-button.html">
+<link rel="import" href="./bower_components/paper-spinner/paper-spinner-lite.html">
+
+<dom-module id="app-cookie">
+  <template>
+
+    <style>
+      :host {
+        display: block;
+        font-size: 16px;
+        font-family: 'Roboto', 'Open-sans', sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(135deg,#4ee6ae,#4c99eb);
+        min-height: calc(100vh - 3rem);
+      }
+      :host *[aria-hidden] {
+        display: none;
+      }
+      h1 {
+        font-size: 2.6rem;
+        font-family: Montserrat,sans-serif;
+        color: #fff;
+        letter-spacing: 2px;
+      }
+      paper-spinner-lite {
+        height: 5rem;
+        width: 5rem;
+        --paper-spinner-color: var(--paper-yellow-a200);
+      }
+      paper-button {
+        padding: 1rem 3rem;
+        text-transform: uppercase;
+        font-size: 1rem;
+        color: #fff;
+        background-color: var(--google-blue-500);
+      }
+      .debug-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3rem;
+        background-color: #000;
+        color: #fff;
+        display: flex;
+        justify-content: center;
+      }
+      .debug-bar p {
+        display: inline-flex;
+        padding-right: 2rem;
+      }
+      .debug-bar p:last-child {
+        padding-right: 0;
+      }
+    </style>
+
+    <iron-ajax
+      id="ajaxAuthenticate"
+      url="./authenticate"
+      method="POST"
+      handle-as="json"
+      on-response="_handleAuthResponse"
+      on-error="_handleAuthError"
+      loading="{{authenticating}}"
+    ></iron-ajax>
+
+    <iron-ajax
+      id="ajaxAuthStatus"
+      url="./auth-status"
+      method="GET"
+      with-credentials="true"
+      handle-as="json"
+      on-response="_handleAuthResponse"
+      on-error="_handleAuthError"
+    ></iron-ajax>
+
+    <template is="dom-if" if="[[!initialized]]">
+      <paper-spinner-lite active="[[!initialized]]"></paper-spinner-lite>
+    </template>
+
+    <template is="dom-if" if="[[initialized]]">
+      <template is="dom-if" if="[[!authenticated]]">
+        <paper-button on-click="_authenticate" hidden$="[[authenticating]]">Login</paper-button>
+        <paper-spinner-lite active="[[authenticating]]" hidden$="[[!authenticating]]"></paper-spinner-lite>
+      </template>
+      <template is="dom-if" if="[[authenticated]]">
+        <h1>You are authenticated.</h1>
+      </template>
+    </template>
+
+    <div class="debug-bar">
+      <p>initialized: [[initialized]]</p>
+      <p>authenticated: [[authenticated]]</p>
+      <p>heartbeat-interval: [[heartbeatInterval]]</p>
+    </div>
+  
+  </template>
+
+  <script>
+    /**
+     * @customElement
+     * @polymer
+     */
+    class AppCookie extends Polymer.Element {
+
+      static get is() { return 'app-cookie'; }
+
+      constructor() {
+        super();
+      }
+
+      ready() {
+        super.ready();
+        this._beginHeartbeat();
+      }
+
+      static get properties() {
+        return {
+
+          /* True if the SPA has intialized */
+          initialized: {
+            type: Boolean,
+            value: false
+          },
+
+          /* True if the SPA is authenticated */
+          authenticated: {
+            type: Boolean,
+            observer: '_initialize'
+          },
+
+          /* The heartbeat interval in miliseconds */
+          heartbeatInterval: {
+            type: Number,
+            value: 2 * 1000
+          }
+
+        };
+      }
+
+      _initialize() {
+        if (!this.initialized) {
+          this.initialized = true;
+        }
+      }
+
+      _beginHeartbeat() {
+        let interval = this.heartbeatInterval;
+        setInterval(function(){
+          this._fetchAuthStatus();
+        }.bind(this), interval);
+      }
+
+      _fetchAuthStatus() {
+        let ajax = this.$.ajaxAuthStatus;
+        ajax.generateRequest();
+      }
+
+      _handleAuthResponse(event) {
+        let request = event.detail;
+        let response = request.response;
+        if (response.status === 'success' && response.data.authenticated) {
+          this.authenticated = true;
+        } else {
+          this.authenticated = false;
+        }
+        console.log(request.url, response);
+      }
+
+      _handleAuthError(event) {
+        let request = event.detail.request;
+        let response = request.response;
+        this.authenticated = false;
+        console.log(request.url, request.status, response.message);
+      }
+
+      _authenticate() {
+        let ajax = this.$.ajaxAuthenticate;
+        ajax.generateRequest();
+      }
+
+    }
+
+    window.customElements.define(AppCookie.is, AppCookie);
+  </script>
+</dom-module>
